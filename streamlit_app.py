@@ -12,7 +12,10 @@ st.title("Data Visualization & Analysis Application")
 uploaded_file = st.file_uploader("Upload your Commercial CSV file", type="csv")
 
 if uploaded_file is not None:
+try:
     df = pd.read_csv(uploaded_file)
+except UnicodeDecodeError:
+    df = pd.read_csv(uploaded_file, encoding='latin-1')
     st.success("File Loaded!")
     st.write("### Data Preview", df.head(10)) # US1
 
