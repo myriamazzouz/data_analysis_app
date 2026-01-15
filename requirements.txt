@@ -1,6 +1,6 @@
-streamlit
-pandas
-matplotlib
-seaborn
-fpdf
-openpyxl
+# Create requirements.txt file
+echo "streamlit>=1.28.0" > requirements.txt
+echo "pandas>=2.0.0" >> requirements.txt
+echo "numpy>=1.24.0" >> requirements.txt
+echo "matplotlib>=3.7.0" >> requirements.txt
+echo "seaborn>=0.12.0" >> requirements.txt
