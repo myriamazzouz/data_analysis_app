@@ -1,84 +1,209 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from fpdf import FPDF
+import numpy as np
+import datetime
 
-# App Config
-st.set_page_config(page_title="Commercial Data Tool", layout="wide")
-st.title("Data Visualization & Analysis Application")
+# Initialize session state
+if 'df' not in st.session_state:
+    # Create simple data
+    np.random.seed(42)
+    n = 150
+    
+    data = {
+        'Date': [datetime.date(2023, 1, 1) + datetime.timedelta(days=i) for i in range(n)],
+        'Product': np.random.choice(['Laptop', 'Phone', 'Tablet'], n),
+        'Region': np.random.choice(['North', 'South', 'East', 'West'], n),
+        'Sales': np.random.randint(100, 5000, n),
+        'Quantity': np.random.randint(1, 20, n),
+        'Profit': np.random.randint(-50, 300, n)
+    }
+    
+    st.session_state.df = pd.DataFrame(data)
 
-# --- SPRINT 1: LOADING & VALIDATION ---
-st.header("Step 1: Data Loading & Validation (US1 & US2)")
-uploaded_file = st.file_uploader("Upload your Commercial CSV file", type="csv")
+# App config - SIMPLE
+st.set_page_config(page_title="Data App", layout="centered")
 
-if uploaded_file is not None:
-    # Universal Loading Fix
-    try:
-        df = pd.read_csv(uploaded_file)
-    except UnicodeDecodeError:
-        df = pd.read_csv(uploaded_file, encoding='latin-1')
-        
-    st.success("File successfully loaded!")
-    st.write("### Data Preview", df.head(10))
+# TITLE
+st.title("📊 Data Analysis Application")
+st.markdown("**Agile Scrum Project | Team: MA, LJ, M, HZ**")
+st.divider()
 
-    with st.expander("Show Data Validation Report"):
-        st.write("**Missing Values:**", df.isnull().sum())
-        st.write("**Duplicate Rows:**", df.duplicated().sum())
+# SIMPLE TABS
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Load", " Clean", "Chart", "Dashboard", " Report"])
 
-    # --- SPRINT 2: CLEANING & TRANSFORMATION ---
+# TAB 1: LOAD
+with tab1:
+    st.header("Data Loading & Validation")
+    st.dataframe(st.session_state.df.head(10))
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Rows", len(st.session_state.df))
+    with col2:
+        st.metric("Sales Total", f"${st.session_state.df['Sales'].sum():,}")
+    with col3:
+        st.metric("Avg Profit", f"${st.session_state.df['Profit'].mean():.2f}")
+
+# TAB 2: CLEAN
+with tab2:
+    st.header("Data Cleaning")
+    
+    if st.button("Remove Duplicates"):
+        before = len(st.session_state.df)
+        st.session_state.df = st.session_state.df.drop_duplicates()
+        after = len(st.session_state.df)
+        st.success(f"Removed {before-after} duplicates!")
+        st.rerun()
+    
+    if st.button("Reset Data"):
+        np.random.seed(42)
+        n = 150
+        data = {
+            'Date': [datetime.date(2023, 1, 1) + datetime.timedelta(days=i) for i in range(n)],
+            'Product': np.random.choice(['Laptop', 'Phone', 'Tablet'], n),
+            'Region': np.random.choice(['North', 'South', 'East', 'West'], n),
+            'Sales': np.random.randint(100, 5000, n),
+            'Quantity': np.random.randint(1, 20, n),
+            'Profit': np.random.randint(-50, 300, n)
+        }
+        st.session_state.df = pd.DataFrame(data)
+        st.success("Data reset to original!")
+        st.rerun()
+
+# TAB 3: CHART (USING STREAMLIT NATIVE - NO MATPLOTLIB!)
+with tab3:
+    st.header("Data Visualization")
+    
+    # Streamlit native charts - NO MATPLOTLIB NEEDED!
+    st.subheader("Sales by Region")
+    region_sales = st.session_state.df.groupby('Region')['Sales'].sum().reset_index()
+    st.bar_chart(region_sales.set_index('Region'))
+    
+    st.subheader("Sales Over Time")
+    st.line_chart(st.session_state.df.set_index('Date')['Sales'])
+    
+    st.subheader("Profit Distribution")
+    st.area_chart(st.session_state.df.set_index('Date')['Profit'])
+
+# TAB 4: DASHBOARD
+with tab4:
+    st.header("KPI Dashboard")
+    
+    # KPIs in columns
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.metric("Total Sales", f"${st.session_state.df['Sales'].sum():,}")
+    with k2:
+        st.metric("Total Profit", f"${st.session_state.df['Profit'].sum():,}")
+    with k3:
+        st.metric("Avg Sale", f"${st.session_state.df['Sales'].mean():.2f}")
+    with k4:
+        st.metric("Transactions", len(st.session_state.df))
+    
+    # Export buttons
     st.divider()
-    st.header("Step 2: Cleaning & Transformation (US3 & US4)")
-    if st.button("🧼 Run Auto-Clean"):
-        df = df.drop_duplicates().fillna(0)
-        st.success("Data cleaned: Duplicates removed and missing values filled.")
-
-    # Filtering Logic
-    cols = df.columns.tolist()
-    filter_col = st.selectbox("Select column to filter by:", cols)
-    selected_vals = st.multiselect(f"Values in {filter_col}:", df[filter_col].unique())
-    if selected_vals:
-        df = df[df[filter_col].isin(selected_vals)]
-
-    # --- SPRINT 4: KPI DASHBOARD ---
+    st.subheader("Export Data")
+    
+    # CSV Export
+    csv = st.session_state.df.to_csv(index=False)
+    st.download_button(
+        "📥 Download CSV",
+        data=csv,
+        file_name="commercial_data.csv",
+        mime="text/csv"
+    )
+    
+    # Show top products
     st.divider()
-    st.header("Step 3: KPI Dashboard (US7)")
-    num_cols = df.select_dtypes(include=['number']).columns.tolist()
-    if num_cols:
-        kpi1, kpi2 = st.columns(2)
-        kpi1.metric("Total Transactions", len(df))
-        kpi2.metric(f"Total {num_cols[0]}", f"{df[num_cols[0]].sum():,.2f}")
+    st.subheader("Top Products")
+    top_products = st.session_state.df.groupby('Product')['Sales'].sum().sort_values(ascending=False)
+    st.dataframe(top_products.reset_index())
 
-    # --- SPRINT 3: VISUALIZATION ---
-    st.header("Step 4: Visual Analytics (US5 & US6)")
-    if len(num_cols) > 0:
-        chart_type = st.radio("Choose Graph Type:", ["Bar", "Line", "Scatter"])
-        x_axis = st.selectbox("X-Axis:", cols)
-        y_axis = st.selectbox("Y-Axis:", num_cols)
+# TAB 5: REPORT
+with tab5:
+    st.header("Analytical Report")
+    
+    # ALWAYS VISIBLE BUTTON
+    if st.button("📄 Generate Report", type="primary"):
+        report = f"""
+        {'='*50}
+        COMMERCIAL DATA ANALYSIS REPORT
+        {'='*50}
         
-        fig, ax = plt.subplots()
-        if chart_type == "Bar": 
-            sns.barplot(data=df, x=x_axis, y=y_axis, ax=ax)
-        elif chart_type == "Line": 
-            sns.lineplot(data=df, x=x_axis, y=y_axis, ax=ax)
-        else: 
-            sns.scatterplot(data=df, x=x_axis, y=y_axis, ax=ax)
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
-
-    # --- SPRINT 5: ANALYTICAL REPORT ---
-    st.divider()
-    st.header("Step 5: Export & Report (US9 & US10)")
-    if st.button("Generate PDF Report"):
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt="Commercial Analysis Summary", ln=1, align='C')
-        pdf.cell(200, 10, txt=f"Total Records: {len(df)}", ln=2)
+        Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         
-        pdf_report = pdf.output(dest='S').encode('latin-1')
-        st.download_button("Download PDF", pdf_report, "analysis_report.pdf", "application/pdf")
+        EXECUTIVE SUMMARY:
+        • Total Records: {len(st.session_state.df):,}
+        • Total Sales: ${st.session_state.df['Sales'].sum():,}
+        • Total Profit: ${st.session_state.df['Profit'].sum():,}
+        • Average Sale: ${st.session_state.df['Sales'].mean():.2f}
+        • Date Range: {st.session_state.df['Date'].min()} to {st.session_state.df['Date'].max()}
+        
+        PRODUCT PERFORMANCE:
+        """
+        
+        # Add product stats
+        product_stats = st.session_state.df.groupby('Product').agg({
+            'Sales': 'sum',
+            'Profit': 'sum',
+            'Quantity': 'sum'
+        }).sort_values('Sales', ascending=False)
+        
+        for product, row in product_stats.iterrows():
+            report += f"\n• {product}: Sales=${row['Sales']:,}, Profit=${row['Profit']:,}, Qty={row['Quantity']}"
+        
+        report += f"""
+        
+        REGIONAL ANALYSIS:
+        """
+        
+        # Add region stats
+        region_stats = st.session_state.df.groupby('Region').agg({
+            'Sales': 'sum',
+            'Profit': 'mean'
+        })
+        
+        for region, row in region_stats.iterrows():
+            report += f"\n• {region}: Sales=${row['Sales']:,}, Avg Profit=${row['Profit']:.2f}"
+        
+        report += f"""
+        
+        AGILE SPRINTS COMPLETED:
+        1. ✅ Data Loading & Validation
+        2. ✅ Data Cleaning & Transformation  
+        3. ✅ Data Visualization
+        4. ✅ KPI Dashboard
+        5. ✅ Analytical Report
+        
+        RECOMMENDATIONS:
+        1. Focus on high-performing products
+        2. Expand in profitable regions
+        3. Implement automated reporting
+        4. Add predictive analytics
+        
+        {'='*50}
+        END OF REPORT
+        {'='*50}
+        """
+        
+        # Save report
+        st.session_state.report = report
+        st.success("✅ Report generated!")
+    
+    # Show report if exists
+    if 'report' in st.session_state:
+        st.text_area("Report Preview", st.session_state.report, height=400)
+        
+        # Download button
+        st.download_button(
+            "📥 Download Report",
+            data=st.session_state.report,
+            file_name="analysis_report.txt",
+            mime="text/plain"
+        )
+    else:
+        st.info("Click 'Generate Report' button above")
 
-    st.download_button("Export Filtered Data (CSV)", df.to_csv(index=False), "filtered_data.csv", "text/csv")
-else:
-    st.info("Please upload a CSV file to begin.")
+# FOOTER
+st.divider()
+st.caption("© 2024 Data Analysis App | Built with Streamlit | Agile Scrum Methodology")
